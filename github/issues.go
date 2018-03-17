@@ -10,7 +10,7 @@ import (
 
 type IssuesService service
 
-func (i *IssuesService) Assigned() ([]*IssueNode, error) {
+func (i *IssuesService) Assigned() ([]IssueNode, error) {
 	searchQuery := githubql.String(
 		fmt.Sprintf(
 			"\\\"is:open author:%s org:%s archived:false\\\"",
@@ -25,7 +25,7 @@ func (i *IssuesService) Assigned() ([]*IssueNode, error) {
 	var Query struct {
 		Search struct {
 			Edges []Node
-		} `graphql:"search(query: $searchQuery, type: ISSUE, first:1)"`
+		} `graphql:"search(query: $searchQuery, type: ISSUE, first:2)"`
 	}
 
 	err := i.client.githubql.Query(
@@ -38,15 +38,15 @@ func (i *IssuesService) Assigned() ([]*IssueNode, error) {
 	}
 
 	nodes := Query.Search.Edges
-	issues := make([]*IssueNode, len(nodes))
+	issues := make([]IssueNode, len(nodes))
 
 	for idx, node := range nodes {
-		issues[idx] = &node.Node
+		issues[idx] = node.Node
 	}
 
 	return issues, nil
 }
 
-func (i *IssuesService) Mentioned() ([]IssueNode, error) {
+func (i *IssuesService) Mentioned() ([]*IssueNode, error) {
 	return nil, nil
 }

@@ -17,4 +17,4 @@
 # local config
 config/local.yml
 
-aws-github-to-trello
+github-to-trello

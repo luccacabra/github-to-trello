@@ -1,5 +1,5 @@
-# aws-github-to-trello
-Customizable GitHub to Trello synchronisation task run via AWS lambdas.
+# github-to-trello
+Customizable GitHub to Trello synchronisation task
 
 ## Why
 * 

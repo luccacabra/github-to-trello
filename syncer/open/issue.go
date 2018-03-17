@@ -1,9 +1,11 @@
 package open
 
 import (
-	"github.com/luccacabra/aws-github-to-trello/github"
-	"github.com/luccacabra/aws-github-to-trello/syncer"
-	trelloWrapper "github.com/luccacabra/aws-github-to-trello/trello"
+	"fmt"
+
+	"github.com/luccacabra/github-to-trello/github"
+	"github.com/luccacabra/github-to-trello/syncer"
+	trelloWrapper "github.com/luccacabra/github-to-trello/trello"
 
 	"github.com/luccacabra/trello"
 	"github.com/pkg/errors"
@@ -12,22 +14,21 @@ import (
 var _ syncer.Syncer = (*openIssueSyncer)(nil)
 
 type openIssueSyncer struct {
-	trelloBoard *trelloWrapper.BoardService
-	github      *github.Client
-	labelMap    map[syncer.UserRelationship][]string
-	listMap     map[syncer.UserRelationship][]string
+	trello   *trelloWrapper.Client
+	github   *github.Client
+	labelMap map[syncer.UserRelationship][]string
+	listMap  map[syncer.UserRelationship][]string
 }
 
 func NewIssueSyncer(
 	githubClient *github.Client,
-	trelloBoard *trelloWrapper.BoardService,
+	trello *trelloWrapper.Client,
 	config syncer.IssueConfig,
 ) (o *openIssueSyncer) {
 
 	return &openIssueSyncer{
-		github:      githubClient,
-		trelloBoard: trelloBoard,
-
+		github: githubClient,
+		trello: trello,
 		labelMap: map[syncer.UserRelationship][]string{
 			syncer.ASSIGNEE: config.Relationship.Assignee.Labels,
 			syncer.MENTION:  config.Relationship.Mention.Labels,
@@ -53,18 +54,29 @@ func (o *openIssueSyncer) syncAssigned() error {
 	}
 
 	for _, issue := range issues {
-		if err = o.trelloBoard.CreateOrUpdateCard(
+		fmt.Printf("Syncing issue \"%s\"\n", issue.Issue.Title)
+		card, err := o.trello.CreateOrUpdateCard(
 			o.convertIssueToCard(issue),
 			o.labelMap[syncer.ASSIGNEE],
 			o.listMap[syncer.ASSIGNEE],
-		); err != nil {
+		)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Syncing comments for issue \"%s\"\n", issue.Issue.Title)
+		comments := make([]string, len(issue.Issue.Comments.Edges))
+		for idx, comment := range issue.Issue.Comments.Edges {
+			comments[idx] = syncer.GenerateComment(comment)
+		}
+		if err = card.SyncComments(comments); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (o *openIssueSyncer) convertIssueToCard(issue *github.IssueNode) *trello.Card {
+func (o *openIssueSyncer) convertIssueToCard(issue github.IssueNode) *trello.Card {
 	card := &trello.Card{
 		Name: syncer.GenerateCardName(string(issue.Issue.Title), string(issue.Issue.Repository.Name)),
 		Desc: string(issue.Issue.Body),

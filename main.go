@@ -2,13 +2,20 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
-	"github.com/luccacabra/aws-github-to-trello/github"
-	"github.com/luccacabra/aws-github-to-trello/syncer"
-	"github.com/luccacabra/aws-github-to-trello/syncer/open"
-	"github.com/luccacabra/aws-github-to-trello/trello"
+	"github.com/luccacabra/github-to-trello/github"
+	"github.com/luccacabra/github-to-trello/syncer"
+	"github.com/luccacabra/github-to-trello/syncer/open"
+	"github.com/luccacabra/github-to-trello/trello"
 
 	"github.com/spf13/viper"
+	"gopkg.in/alecthomas/kingpin.v2"
+)
+
+var (
+	configFile = kingpin.Flag("config.file", "github-to-trello configuration file.").Default("github-to-trello.yaml").String()
 )
 
 func main() {
@@ -17,8 +24,13 @@ func main() {
 	trelloKey := viper.GetString("TRELLO_KEY")
 	trelloToken := viper.GetString("TRELLO_TOKEN")
 
-	viper.SetConfigName("local")
-	viper.AddConfigPath("config/")
+	// load config file
+	kingpin.Parse()
+	configFileBaseName := filepath.Base(*configFile)
+
+	viper.SetConfigName(strings.TrimSuffix(configFileBaseName, filepath.Ext(configFileBaseName)))
+	viper.AddConfigPath(filepath.Dir(*configFile))
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
@@ -45,6 +57,6 @@ func main() {
 	conf := &syncer.Config{}
 	err = viper.UnmarshalKey("config", conf)
 
-	openIssueSyncer := open.NewIssueSyncer(ghClient, trelloClient.Board, conf.Open.Types.Issue)
+	openIssueSyncer := open.NewIssueSyncer(ghClient, trelloClient, conf.Open.Types.Issue)
 	openIssueSyncer.Sync()
 }

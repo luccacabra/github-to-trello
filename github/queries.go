@@ -21,7 +21,7 @@ type IssueNode struct {
 		Body     githubql.String
 		Comments struct {
 			Edges []CommentNode
-		} `graphql:"comments(last:1)"`
+		} `graphql:"comments(last:100)"`
 		CreatedAt  githubql.DateTime
 		ID         githubql.String
 		Repository struct {

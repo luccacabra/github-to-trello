@@ -1,5 +1,5 @@
 all: dep
-	go build -o aws-github-to-trello
+	go build -o github-to-trello
 
 dep:
 	dep ensure
@@ -7,4 +7,4 @@ dep:
 build: GOOS=linux GOARCH=amd64
 
 build: dep
-	go build -o aws-github-to-trello
+	go build -o github-to-trello

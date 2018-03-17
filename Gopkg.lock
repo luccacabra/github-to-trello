@@ -2,6 +2,21 @@
 
 
 [[projects]]
+  branch = "master"
+  name = "github.com/alecthomas/template"
+  packages = [
+    ".",
+    "parse"
+  ]
+  revision = "a0175ee3bccc567396460bf5acd36800cb10c49c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/alecthomas/units"
+  packages = ["."]
+  revision = "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
+
+[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
@@ -33,7 +48,7 @@
   branch = "master"
   name = "github.com/luccacabra/trello"
   packages = ["."]
-  revision = "0666ee788842028559b4118623b109eeb3034e34"
+  revision = "83bdf125826ecf3e525a4fa4831cd9a148dfe50e"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -121,7 +136,7 @@
     "context",
     "context/ctxhttp"
   ]
-  revision = "e0c57d8f86c17f0724497efcb3bc617e82834821"
+  revision = "24dd3780ca4f75fed9f321890729414a4b5d3f13"
 
 [[projects]]
   branch = "master"
@@ -166,6 +181,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "gopkg.in/alecthomas/kingpin.v2"
+  packages = ["."]
+  revision = "947dcec5ba9c011838740e680966fd7087a71d0d"
+  version = "v2.2.6"
+
+[[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   revision = "7f97868eec74b32b0982dd158a51a446d1da7eb5"
@@ -174,6 +195,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "186895e27946ef4a429244bde416a621629a4c9994e32048f0b764defbdcad70"
+  inputs-digest = "6a896aebd994d225e1dc27fe9edd26026fa111e7b432e17897c6769735d412b2"
   solver-name = "gps-cdcl"
   solver-version = 1
