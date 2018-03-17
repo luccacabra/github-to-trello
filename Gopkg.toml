@@ -1,0 +1,15 @@
+[prune]
+  go-tests = true
+  unused-packages = true
+
+[[constraint]]
+  name = "github.com/spf13/viper"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/luccacabra/trello"
+  branch = "master"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/shurcooL/githubql"
