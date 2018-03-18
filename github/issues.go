@@ -25,7 +25,7 @@ func (i *IssuesService) Assigned() ([]IssueNode, error) {
 	var Query struct {
 		Search struct {
 			Edges []Node
-		} `graphql:"search(query: $searchQuery, type: ISSUE, first:2)"`
+		} `graphql:"search(query: $searchQuery, type: ISSUE, first:100)"`
 	}
 
 	err := i.client.githubql.Query(

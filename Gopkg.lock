@@ -48,7 +48,7 @@
   branch = "master"
   name = "github.com/luccacabra/trello"
   packages = ["."]
-  revision = "83bdf125826ecf3e525a4fa4831cd9a148dfe50e"
+  revision = "a78999d3e5db038ccbd242d72080ac9f1cb1f6ed"
 
 [[projects]]
   name = "github.com/magiconair/properties"

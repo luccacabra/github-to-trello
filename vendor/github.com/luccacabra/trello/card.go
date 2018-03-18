@@ -193,6 +193,27 @@ func (c *Card) AddComment(comment string, args Arguments) (*Action, error) {
 	return &action, err
 }
 
+func (c *Card) UpdateComment(comment, commentActionID string) error {
+	path := fmt.Sprintf("cards/%s/actions/%s/comments", c.ID, commentActionID)
+	if err := c.client.Put(
+		path,
+		map[string]string{
+			"text": comment,
+		},
+		&Action{}); err != nil {
+		return errors.Wrapf(err, "Error updating comment '%s' on card '%s'", commentActionID, c.ID)
+	}
+	return nil
+}
+
+func (c *Card) DeleteComment(commentActionID string) error {
+	path := fmt.Sprintf("cards/%s/actions/%s/comments", c.ID, commentActionID)
+	if err := c.client.Delete(path, Defaults(), nil); err != nil {
+		return errors.Wrapf(err, "Error deleting comment '%s' from card '%s'", commentActionID, c.ID)
+	}
+	return nil
+}
+
 // If this Card was created from a copy of another Card, this func retrieves
 // the originating Card. Returns an error only when a low-level failure occurred.
 // If this Card has no parent, a nil card and nil error are returned. In other words, the

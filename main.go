@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 
@@ -58,5 +59,7 @@ func main() {
 	err = viper.UnmarshalKey("config", conf)
 
 	openIssueSyncer := open.NewIssueSyncer(ghClient, trelloClient, conf.Open.Types.Issue)
-	openIssueSyncer.Sync()
+	if err = openIssueSyncer.Sync(); err != nil {
+		log.Fatal(err)
+	}
 }

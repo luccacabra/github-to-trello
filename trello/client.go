@@ -43,6 +43,7 @@ func NewClient(key, token string, config Config) *Client {
 
 func (c *Client) CreateCard(card *trello.Card, labelNames []string) error {
 	fmt.Printf("Creating new card \"%s\"\n", card.Name)
+
 	err := c.client.CreateCard(card, map[string]string{
 		"idLabels": strings.Join(c.getLabelIDsForNames(labelNames), ","),
 	})
@@ -71,13 +72,24 @@ func (c *Client) CreateOrUpdateCard(card *trello.Card, labelNames, listNames []s
 		_, ok := cardsByListID[c.listIDMap[listName]]
 		if !ok {
 			// create it
-			fmt.Printf("Creating new card for issue \"%s\"\n", card.Name)
 			card.IDList = c.listIDMap[listName]
 			if err = c.CreateCard(card, labelNames); err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "Error creating card for issue \"%s\"", card.Name)
 			}
 		} else { // else update it
-			card = cardsByListID[c.listIDMap[listName]]
+			oldCard := cardsByListID[c.listIDMap[listName]]
+			if card.Desc != oldCard.Desc {
+				fmt.Printf("Updating card for issue \"%s\"\n", card.Name)
+				if err = oldCard.Update(map[string]string{
+					"desc":     card.Desc,
+					"idLabels": strings.Join(c.getLabelIDsForNames(labelNames), ","),
+				}); err != nil {
+					return nil, errors.Wrapf(err, "Error updating card \"%s\" for issue \"%s\"", card.ID, card.Name)
+				}
+			}
+			// transfer old card to new card here to grab the client obj from the old card obj
+			oldCard.Desc = card.Desc
+			card = oldCard
 		}
 	}
 	return &Card{trelloCard: card}, nil

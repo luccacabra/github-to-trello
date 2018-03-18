@@ -21,6 +21,10 @@ Customizable GitHub to Trello synchronisation task
 * Does not support pagination (only checks first 100 issues, prs, comments etc)
 * No label/list assignment inheritance
 * Only syncs to a single board
+* Only syncs card content and comments - labels are only applied on the first action
+* Need to make improvements to `luccacabra/trello`
+    * convert queries to QueryStructs
+    * implement shared services model
 ### Precedence
 `base` < `issue_type#type` < (`card_action#action` | `user_relation#relation`)
 ### all

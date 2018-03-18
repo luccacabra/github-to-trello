@@ -42,7 +42,7 @@ func NewIssueSyncer(
 
 func (o *openIssueSyncer) Sync() error {
 	if err := o.syncAssigned(); err != nil {
-		return err
+		return errors.Wrap(err, "Error syncing open assigned issues")
 	}
 	return nil
 }
@@ -54,6 +54,10 @@ func (o *openIssueSyncer) syncAssigned() error {
 	}
 
 	for _, issue := range issues {
+		// graphql API returns empty nodes sometimes
+		if len(issue.Issue.Title) == 0 {
+			continue
+		}
 		fmt.Printf("Syncing issue \"%s\"\n", issue.Issue.Title)
 		card, err := o.trello.CreateOrUpdateCard(
 			o.convertIssueToCard(issue),
@@ -61,7 +65,17 @@ func (o *openIssueSyncer) syncAssigned() error {
 			o.listMap[syncer.ASSIGNEE],
 		)
 		if err != nil {
-			return err
+			switch errors.Cause(err).(type) {
+			case *trello.ErrorURLLengthExceeded:
+				fmt.Printf(
+					"[WARNING] Unable to automatically create new card for issue \"%s\""+
+						"- request URL exceeded maximum length allowed.\n",
+					issue.Issue.Title,
+				)
+				continue
+			default:
+				return errors.Wrapf(err, "Error syncing issue \"%s\"", issue.Issue.Title)
+			}
 		}
 
 		fmt.Printf("Syncing comments for issue \"%s\"\n", issue.Issue.Title)
@@ -69,8 +83,8 @@ func (o *openIssueSyncer) syncAssigned() error {
 		for idx, comment := range issue.Issue.Comments.Edges {
 			comments[idx] = syncer.GenerateComment(comment)
 		}
-		if err = card.SyncComments(comments); err != nil {
-			return err
+		if err = card.SyncComments(comments, o.labelMap[syncer.ASSIGNEE]); err != nil {
+			return errors.Wrapf(err, "Error syncing comments for issue \"%s\"", issue.Issue.Title)
 		}
 	}
 	return nil

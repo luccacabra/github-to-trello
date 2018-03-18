@@ -18,6 +18,15 @@ import (
 )
 
 const DEFAULT_BASEURL = "https://api.trello.com/1"
+const MAXIMUM_URL_LENGTH = 8913
+
+type ErrorURLLengthExceeded struct {
+	message string
+}
+
+func (e *ErrorURLLengthExceeded) Error() string {
+	return e.message
+}
 
 type Client struct {
 	Client   *http.Client
@@ -161,6 +170,12 @@ func (c *Client) Post(path string, args Arguments, target interface{}) error {
 
 	url := fmt.Sprintf("%s/%s", c.BaseURL, path)
 	urlWithParams := fmt.Sprintf("%s?%s", url, params.Encode())
+
+	if len(urlWithParams) > MAXIMUM_URL_LENGTH {
+		return &ErrorURLLengthExceeded{
+			message: fmt.Sprintf("URL length of %d greater than allowed %d", len(urlWithParams), MAXIMUM_URL_LENGTH),
+		}
+	}
 
 	req, err := http.NewRequest("POST", urlWithParams, nil)
 	if err != nil {

@@ -3,7 +3,6 @@ package syncer
 import (
 	"fmt"
 	"github.com/luccacabra/github-to-trello/github"
-	"regexp"
 	"strings"
 )
 
@@ -44,14 +43,11 @@ func GenerateCardName(title, repositoryName string) string {
 }
 
 func GenerateComment(commentNode github.CommentNode) string {
-	var re = regexp.MustCompile(`\n(.)`)
 	comment := commentNode.Node
 
-	body := strings.Replace(string(comment.Body), "\n\n", "\n>\n", -1)
-	body = re.ReplaceAllString(body, `\n>$1`)
-	return fmt.Sprintf("## @%s \n\n > %s\n\n___\n\n[View on GitHub](%s)",
+	return fmt.Sprintf("## @%s\n\n> %s \n\n___\n\n[View on GitHub](%s)",
 		comment.Author.Login,
-		body,
+		strings.Replace(string(comment.Body), "\n", "\n> ", -1),
 		comment.URL,
 	)
 }
