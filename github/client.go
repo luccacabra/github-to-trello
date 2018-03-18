@@ -56,3 +56,7 @@ func (c *Client) getOrgName() string {
 func (c *Client) getUserName() string {
 	return c.userName
 }
+
+func (c *Client) prepareSearchQuery(search *Search) {
+	search.Query = githubql.String("\\\"" + search.Query + "\\\"")
+}

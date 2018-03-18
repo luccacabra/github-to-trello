@@ -11,29 +11,70 @@ import (
 type IssuesService service
 
 func (i *IssuesService) Assigned() ([]IssueNode, error) {
-	searchQuery := githubql.String(
+	query := githubql.String(
 		fmt.Sprintf(
-			"\\\"is:open author:%s org:%s archived:false\\\"",
+			"is:open author:%s org:%s archived:false",
 			i.client.getUserName(),
 			i.client.getOrgName(),
 		),
 	)
+	issues, err := i.searchIssue(
+		Search{
+			Query: query,
+			First: 100,
+		},
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error querying open assigned issues")
+	}
+	return issues, nil
+}
+
+func (i *IssuesService) Mentioned() ([]IssueNode, error) {
+	query := githubql.String(
+		fmt.Sprintf(
+			"is:open mentions:%s -author:%s org:%s archived:false]",
+			i.client.getUserName(),
+			i.client.getUserName(),
+			i.client.getOrgName(),
+		),
+	)
+	issues, err := i.searchIssue(
+		Search{
+			Query: query,
+			First: 100,
+		},
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error querying open assigned issues")
+	}
+	return issues, nil
+}
+
+func (i *IssuesService) searchIssue(search Search) ([]IssueNode, error) {
+	search.Type = ISSUE
+	i.client.prepareSearchQuery(&search)
+
 	variables := map[string]interface{}{
-		"searchQuery": searchQuery,
+		"searchQuery": search.Query,
+		"type":        search.Type,
+		"first":       search.First,
 	}
 
+	type Node struct {
+		Node IssueNode
+	}
 	var Query struct {
 		Search struct {
 			Edges []Node
-		} `graphql:"search(query: $searchQuery, type: ISSUE, first:100)"`
+		} `graphql:"search(query: $searchQuery, type: $type, first: $first)"`
 	}
 
-	err := i.client.githubql.Query(
+	if err := i.client.githubql.Query(
 		context.Background(),
 		&Query,
 		variables,
-	)
-	if err != nil {
+	); err != nil {
 		return nil, errors.Wrap(err, "Error querying open assigned issues")
 	}
 
@@ -45,8 +86,4 @@ func (i *IssuesService) Assigned() ([]IssueNode, error) {
 	}
 
 	return issues, nil
-}
-
-func (i *IssuesService) Mentioned() ([]*IssueNode, error) {
-	return nil, nil
 }

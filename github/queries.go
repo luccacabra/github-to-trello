@@ -6,6 +6,25 @@ import (
 	"github.com/shurcooL/githubql"
 )
 
+type SearchType githubql.String
+
+const (
+	ISSUE      SearchType = "ISSUE"
+	REPOSITORY            = "REPOSITORY"
+	USER                  = "USER"
+)
+
+type Search struct {
+	After  githubql.String
+	Before githubql.String
+
+	First githubql.Int
+	Last  githubql.Int
+
+	Query githubql.String
+	Type  SearchType
+}
+
 type CommentNode struct {
 	Node struct {
 		Author struct {
@@ -30,8 +49,4 @@ type IssueNode struct {
 		Title githubql.String
 		URL   githubql.String
 	} `graphql:"... on Issue"`
-}
-
-type Node struct {
-	Node IssueNode
 }

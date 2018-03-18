@@ -129,6 +129,12 @@ func (c *Client) Put(path string, args Arguments, target interface{}) error {
 	url := fmt.Sprintf("%s/%s", c.BaseURL, path)
 	urlWithParams := fmt.Sprintf("%s?%s", url, params.Encode())
 
+	if len(urlWithParams) > MAXIMUM_URL_LENGTH {
+		return &ErrorURLLengthExceeded{
+			message: fmt.Sprintf("URL length of %d greater than allowed %d", len(urlWithParams), MAXIMUM_URL_LENGTH),
+		}
+	}
+
 	req, err := http.NewRequest("PUT", urlWithParams, nil)
 	if err != nil {
 		return errors.Wrapf(err, "Invalid PUT request %s", url)

@@ -41,14 +41,45 @@ func NewClient(key, token string, config Config) *Client {
 	return c
 }
 
-func (c *Client) CreateCard(card *trello.Card, labelNames []string) error {
+func (c *Client) createCard(card *trello.Card, labelNames []string) error {
 	fmt.Printf("Creating new card \"%s\"\n", card.Name)
-
-	err := c.client.CreateCard(card, map[string]string{
+	labelIDs := map[string]string{
 		"idLabels": strings.Join(c.getLabelIDsForNames(labelNames), ","),
-	})
+	}
+
+	err := c.client.CreateCard(card, labelIDs)
 	if err != nil {
-		return errors.Wrapf(err, "unable to create card \"%s\"", card.Name)
+		switch errors.Cause(err).(type) {
+		case *trello.ErrorURLLengthExceeded:
+			card.Desc = ""
+			if err2 := c.client.CreateCard(card, labelIDs); err2 != nil {
+				return err2
+			}
+			return err
+		default:
+			return errors.Wrapf(err, "unable to create card \"%s\"", card.Name)
+		}
+	}
+	return nil
+}
+
+func (c *Client) updateCard(card *trello.Card, desc string, labelNames []string) error {
+	fmt.Printf("Updating card for issue \"%s\"\n", card.Name)
+	labelIDs := strings.Join(c.getLabelIDsForNames(labelNames), ",")
+	err := card.Update(map[string]string{
+		"desc":     desc,
+		"idLabels": labelIDs,
+	})
+	switch errors.Cause(err).(type) {
+	case *trello.ErrorURLLengthExceeded:
+		if err2 := card.Update(map[string]string{
+			"idLabels": labelIDs,
+		}); err2 != nil {
+			return err2
+		}
+		return err
+	default:
+		return errors.Wrapf(err, "unable to update card \"%s\"", card.Name)
 	}
 	return nil
 }
@@ -73,17 +104,13 @@ func (c *Client) CreateOrUpdateCard(card *trello.Card, labelNames, listNames []s
 		if !ok {
 			// create it
 			card.IDList = c.listIDMap[listName]
-			if err = c.CreateCard(card, labelNames); err != nil {
+			if err = c.createCard(card, labelNames); err != nil {
 				return nil, errors.Wrapf(err, "Error creating card for issue \"%s\"", card.Name)
 			}
 		} else { // else update it
 			oldCard := cardsByListID[c.listIDMap[listName]]
 			if card.Desc != oldCard.Desc {
-				fmt.Printf("Updating card for issue \"%s\"\n", card.Name)
-				if err = oldCard.Update(map[string]string{
-					"desc":     card.Desc,
-					"idLabels": strings.Join(c.getLabelIDsForNames(labelNames), ","),
-				}); err != nil {
+				if err = c.updateCard(oldCard, card.Desc, labelNames); err != nil {
 					return nil, errors.Wrapf(err, "Error updating card \"%s\" for issue \"%s\"", card.ID, card.Name)
 				}
 			}

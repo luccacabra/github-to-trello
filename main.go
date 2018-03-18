@@ -8,7 +8,7 @@ import (
 
 	"github.com/luccacabra/github-to-trello/github"
 	"github.com/luccacabra/github-to-trello/syncer"
-	"github.com/luccacabra/github-to-trello/syncer/open"
+	githubSync "github.com/luccacabra/github-to-trello/syncer/github"
 	"github.com/luccacabra/github-to-trello/trello"
 
 	"github.com/spf13/viper"
@@ -58,8 +58,8 @@ func main() {
 	conf := &syncer.Config{}
 	err = viper.UnmarshalKey("config", conf)
 
-	openIssueSyncer := open.NewIssueSyncer(ghClient, trelloClient, conf.Open.Types.Issue)
-	if err = openIssueSyncer.Sync(); err != nil {
+	issueSyncer := githubSync.NewIssueSyncer(ghClient, trelloClient, conf.Open.Types.Issue)
+	if err = issueSyncer.Sync(); err != nil {
 		log.Fatal(err)
 	}
 }
