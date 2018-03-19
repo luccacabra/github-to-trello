@@ -14,8 +14,8 @@ import (
 var _ syncer.Syncer = (*issueSyncer)(nil)
 
 type issueSyncer struct {
-	trello   *trelloWrapper.Client
-	github   *github.Client
+	trello *trelloWrapper.Client
+	github *github.Client
 
 	config syncer.IssueConfig
 }
@@ -25,7 +25,6 @@ func NewIssueSyncer(
 	trello *trelloWrapper.Client,
 	config syncer.IssueConfig,
 ) (o *issueSyncer) {
-
 	return &issueSyncer{
 		github: githubClient,
 		trello: trello,
@@ -40,9 +39,9 @@ func (i *issueSyncer) Sync() error {
 	if err := i.syncMentioned(); err != nil {
 		return errors.Wrap(err, "Error syncing open mentioned issues")
 	}
-	if err := i.syncClosed(); err != nil {
-		return errors.Wrap(err, "Error syncing closed assigned & mentioned issues")
-	}
+	//if err := i.syncClosed(); err != nil {
+	//	return errors.Wrap(err, "Error syncing closed assigned & mentioned issues")
+	//}
 	return nil
 }
 
@@ -56,9 +55,9 @@ func (i *issueSyncer) sync(issues []github.IssueNode, actionConfig trelloWrapper
 		card := i.convertIssueToCard(issue)
 
 		fmt.Printf("Syncing issue \"%s\"\n", issue.Issue.Title)
-		err := i.trello.CreateOrUpdateCardInstancesByActions(card, actionConfig)
+		_, err := i.trello.CreateOrUpdateCardInstancesByActions(card, actionConfig)
 		if err != nil {
-				return errors.Wrapf(err, "Error syncing issue \"%s\"", issue.Issue.Title)
+			return errors.Wrapf(err, "Error syncing issue \"%s\"", issue.Issue.Title)
 		}
 
 		err = i.syncComments(card, issue, actionConfig)
@@ -92,6 +91,45 @@ func (i *issueSyncer) syncMentioned() error {
 }
 
 func (i *issueSyncer) syncClosed() error {
+	fmt.Println("Syncing closed issues")
+	cards, err := i.trello.GetCardInstancesByName()
+	if err != nil {
+		return errors.Wrap(err, "unable to sync closed issues")
+	}
+
+	assignedIssues, err := i.github.Issues.Assigned()
+	if err != nil {
+		return errors.Wrap(err, "unable to sync closed issues")
+	}
+	if err = i.close(assignedIssues, cards, i.config.Relationship.Assignee.Actions); err != nil {
+		return errors.Wrap(err, "unable to sync closed issues")
+	}
+
+	mentionedIssues, err := i.github.Issues.Mentioned()
+	if err != nil {
+		return errors.Wrap(err, "unable to sync closed issues")
+	}
+	if err = i.close(mentionedIssues, cards, i.config.Relationship.Mention.Actions); err != nil {
+		return errors.Wrap(err, "unable to sync closed issues")
+	}
+	return nil
+}
+
+func (i *issueSyncer) close(
+	issues []github.IssueNode,
+	cardMap map[string][]*trelloWrapper.Card,
+	actionConfig trelloWrapper.Actions,
+) error {
+	issueMap := i.getIssuesByCardName(issues)
+	for cardName, cards := range cardMap {
+		// card isn't in active issues so close
+		if _, ok := issueMap[cardName]; !ok {
+			if cardName != i.trello.LabelCardName() {
+				fmt.Printf("closing issue \"%s\"\n", cardName)
+				i.trello.CloseCards(cards, actionConfig)
+			}
+		}
+	}
 	return nil
 }
 
@@ -102,24 +140,24 @@ func (i *issueSyncer) syncComments(card *trello.Card, node github.IssueNode, act
 	for idx, comment := range issue.Comments.Edges {
 		comments[idx] = syncer.GenerateComment(comment)
 	}
-
-
-	cards, err := i.trello.SearchCardsByName(card.Name)
-	if err != nil {
-		return err
-	}
-	for _, card := range cards {
-		if err := card.SyncComments(comments, i.trello.GetLabelIDsForNames(actionConfig.Update.Labels)); err != nil {
-			return errors.Wrapf(err, "Error syncing comments for issue \"%s\"", issue.Title)
-		}
+	if err := i.trello.SyncComments(card, comments, actionConfig); err != nil {
+		return errors.Wrapf(err, "error syncing comments for issue %s", node.Issue.Title)
 	}
 	return nil
+}
+
+func (i *issueSyncer) getIssuesByCardName(issues []github.IssueNode) map[string]github.IssueNode {
+	issueMap := map[string]github.IssueNode{}
+	for _, issue := range issues {
+		issueMap[syncer.GenerateCardName(string(issue.Issue.Title), string(issue.Issue.Repository.Name))] = issue
+	}
+	return issueMap
 }
 
 func (i *issueSyncer) convertIssueToCard(issue github.IssueNode) *trello.Card {
 	card := &trello.Card{
 		Name: syncer.GenerateCardName(string(issue.Issue.Title), string(issue.Issue.Repository.Name)),
-		Desc: string(issue.Issue.Body),
+		Desc: syncer.GenerateCardDesc(string(issue.Issue.Body), string(issue.Issue.URL)),
 	}
 	return card
 }

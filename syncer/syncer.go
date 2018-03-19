@@ -47,3 +47,10 @@ func GenerateComment(commentNode github.CommentNode) string {
 		comment.URL,
 	)
 }
+
+func GenerateCardDesc(issueBody, URL string) string {
+	return fmt.Sprintf("%s \n\n___\n\n[View on GitHub](%s)",
+		issueBody,
+		URL,
+	)
+}

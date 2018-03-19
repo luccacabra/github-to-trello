@@ -13,7 +13,7 @@ type IssuesService service
 func (i *IssuesService) Assigned() ([]IssueNode, error) {
 	query := githubql.String(
 		fmt.Sprintf(
-			"is:open author:%s org:%s archived:false",
+			"is:open assignee:%s org:%s archived:false",
 			i.client.getUserName(),
 			i.client.getOrgName(),
 		),
@@ -33,7 +33,7 @@ func (i *IssuesService) Assigned() ([]IssueNode, error) {
 func (i *IssuesService) Mentioned() ([]IssueNode, error) {
 	query := githubql.String(
 		fmt.Sprintf(
-			"is:open mentions:%s -author:%s org:%s archived:false]",
+			"is:open mentions:%s -author:%s org:%s archived:false",
 			i.client.getUserName(),
 			i.client.getUserName(),
 			i.client.getOrgName(),
@@ -49,6 +49,31 @@ func (i *IssuesService) Mentioned() ([]IssueNode, error) {
 		return nil, errors.Wrap(err, "Error querying open assigned issues")
 	}
 	return issues, nil
+}
+
+func (i *IssuesService) IsClosed(issueName, issueNumber string) (bool, error) {
+	query := githubql.String(
+		fmt.Sprintf(
+			"is:closed archived:false org %s \"%s\"",
+			i.client.getOrgName(),
+			issueName,
+		),
+	)
+	issues, err := i.searchIssue(
+		Search{
+			Query: query,
+			First: 1,
+		},
+	)
+	if err != nil {
+		return false, errors.Wrap(err, "Error querying closed assigned issues")
+	}
+	for _, issue := range issues {
+		if string(issue.Issue.ID) == issueNumber {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (i *IssuesService) searchIssue(search Search) ([]IssueNode, error) {

@@ -243,12 +243,13 @@ func (c *Client) Delete(path string, args Arguments, target interface{}) error {
 		return errors.Wrapf(err, "HTTP Read error on response for %s", url)
 	}
 
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	err = decoder.Decode(target)
-	if err != nil {
-		return errors.Wrapf(err, "JSON decode failed on %s:\n%s", url, string(b))
+	if target != nil {
+		decoder := json.NewDecoder(bytes.NewBuffer(b))
+		err = decoder.Decode(target)
+		if err != nil {
+			return errors.Wrapf(err, "JSON decode failed on %s:\n%s", url, string(b))
+		}
 	}
-
 	return nil
 }
 

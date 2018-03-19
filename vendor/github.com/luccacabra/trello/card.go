@@ -162,6 +162,15 @@ func (l *List) AddCard(card *Card, extraArgs Arguments) error {
 	return err
 }
 
+func (c *Client) DeleteCard(card *Card) error {
+	path := fmt.Sprintf("cards/%s", card.ID)
+	err := c.Delete(path, Defaults(), nil)
+	if err == nil {
+		card.client = c
+	}
+	return err
+}
+
 // Try these Arguments
 //
 // 	Arguments["keepFromSource"] = "all"
