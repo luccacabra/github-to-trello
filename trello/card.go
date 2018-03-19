@@ -5,13 +5,14 @@ import (
 
 	"github.com/luccacabra/trello"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 type Card struct {
 	trelloCard *trello.Card
 }
 
-func (c *Card) SyncComments(comments []string, idLabels []string) error {
+func (c *Card) SyncComments(comments, labelIDs []string) error {
 	// Find existing comments for this card
 	cardCommentActions, err := c.trelloCard.GetActions(
 		map[string]string{
@@ -22,13 +23,13 @@ func (c *Card) SyncComments(comments []string, idLabels []string) error {
 		return errors.Wrapf(err, "Error getting comments for card \"%s\"", c.trelloCard.ID)
 	}
 
-	if err = c.syncComments(cardCommentActions, comments, idLabels); err != nil {
+	if err = c.syncComments(cardCommentActions, comments, labelIDs); err != nil {
 		return errors.Wrapf(err, "Error syncing comments for card \"%s\"", c.trelloCard.ID)
 	}
 	return nil
 }
 
-func (c *Card) syncComments(oldComments []*trello.Action, newComments, idLabels []string) error {
+func (c *Card) syncComments(oldComments []*trello.Action, newComments, labelIDs []string) error {
 	idx := 0
 	newActivity := false
 
@@ -42,7 +43,16 @@ func (c *Card) syncComments(oldComments []*trello.Action, newComments, idLabels 
 			newActivity = true
 		} else { // check for case: GH Issue comment text changed
 			if oldComment.Data.Text != newComments[idx] {
-				if err := c.trelloCard.UpdateComment(newComments[idx], oldComment.ID); err != nil {
+				err := c.trelloCard.UpdateComment(newComments[idx], oldComment.ID)
+				switch errors.Cause(err).(type) {
+				case *trello.ErrorURLLengthExceeded:
+					fmt.Printf(
+						"[WARNING] Unable to update comment for card \"%s\""+
+							"- request URL exceeded maximum length allowed.\n",
+						c.trelloCard.Name,
+					)
+					return nil
+				default:
 					return errors.Wrapf(err, "Error updating comment \"%s\" to card \"%s\"", oldComment.ID, c.trelloCard.ID)
 				}
 				newActivity = true
@@ -54,7 +64,19 @@ func (c *Card) syncComments(oldComments []*trello.Action, newComments, idLabels 
 	// check for case: new comments added to GH Issue
 	if idx < len(newComments) {
 		for i := idx; i < len(newComments); i++ {
-			if _, err := c.trelloCard.AddComment(newComments[i], trello.Defaults()); err != nil {
+			_, err := c.trelloCard.AddComment(newComments[i], trello.Defaults())
+			switch errors.Cause(err).(type) {
+			case *trello.ErrorURLLengthExceeded:
+				if _, err := c.trelloCard.AddComment("<TOO LONG TO AUTOMATICALLY ADD>", trello.Defaults()); err != nil {
+					return err
+				}
+				fmt.Printf(
+					"[WARNING] Unable to automatically create comment for card \"%s\""+
+						"- request URL exceeded maximum length allowed.\n",
+					c.trelloCard.Name,
+				)
+				return nil
+			default:
 				return errors.Wrapf(err, "Error creating new comment to card \"%s\"", c.trelloCard.ID)
 			}
 			newActivity = true
@@ -63,7 +85,7 @@ func (c *Card) syncComments(oldComments []*trello.Action, newComments, idLabels 
 
 	// re-apply labels if card was updated
 	if newActivity {
-		c.markNewAcivity(idLabels)
+		c.markNewAcivity(labelIDs)
 	}
 	return nil
 }

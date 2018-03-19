@@ -40,7 +40,7 @@ func main() {
 	trelloClient := trello.NewClient(
 		trelloKey,
 		trelloToken,
-		trello.Config{
+		trello.ClientConfig{
 			BoardName:     viper.GetString("trello_board_name"),
 			LabelCardName: viper.GetString("trello_label_card_name"),
 			LabelMap:      viper.GetStringMapString("trello_label_map"),
@@ -58,7 +58,7 @@ func main() {
 	conf := &syncer.Config{}
 	err = viper.UnmarshalKey("config", conf)
 
-	issueSyncer := githubSync.NewIssueSyncer(ghClient, trelloClient, conf.Open.Types.Issue)
+	issueSyncer := githubSync.NewIssueSyncer(ghClient, trelloClient, conf.Issue)
 	if err = issueSyncer.Sync(); err != nil {
 		log.Fatal(err)
 	}

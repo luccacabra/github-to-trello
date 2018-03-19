@@ -2,8 +2,10 @@ package syncer
 
 import (
 	"fmt"
-	"github.com/luccacabra/github-to-trello/github"
 	"strings"
+
+	"github.com/luccacabra/github-to-trello/github"
+	"github.com/luccacabra/github-to-trello/trello"
 )
 
 type UserRelationship int
@@ -13,29 +15,23 @@ const (
 	MENTION
 )
 
-type Syncer interface {
-	Sync() error
-}
-
 type Config struct {
-	Open struct {
-		Types struct {
-			Issue IssueConfig
-		}
-	}
+	Issue IssueConfig
 }
 type IssueConfig struct {
 	Relationship Relationship
 }
 type Relationship struct {
 	Assignee struct {
-		Lists  []string
-		Labels []string
+		Actions trello.Actions
 	}
 	Mention struct {
-		Lists  []string
-		Labels []string
+		Actions trello.Actions
 	}
+}
+
+type Syncer interface {
+	Sync() error
 }
 
 func GenerateCardName(title, repositoryName string) string {

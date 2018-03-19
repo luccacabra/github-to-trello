@@ -10,14 +10,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Config struct {
+type ClientConfig struct {
 	BoardName     string
 	LabelCardName string
 	LabelMap      map[string]string
 }
 
 type Client struct {
-	config Config
+	config ClientConfig
 
 	client *trello.Client
 	board  *trello.Board
@@ -27,7 +27,7 @@ type Client struct {
 
 }
 
-func NewClient(key, token string, config Config) *Client {
+func NewClient(key, token string, config ClientConfig) *Client {
 	c := &Client{
 		client: trello.NewClient(key, token),
 		config: config,
@@ -42,9 +42,9 @@ func NewClient(key, token string, config Config) *Client {
 }
 
 func (c *Client) createCard(card *trello.Card, labelNames []string) error {
-	fmt.Printf("Creating new card \"%s\"\n", card.Name)
+	fmt.Printf("Creating new card \"%s\" on list \"%s\"\n", card.Name, c.listIDMap[card.IDList])
 	labelIDs := map[string]string{
-		"idLabels": strings.Join(c.getLabelIDsForNames(labelNames), ","),
+		"idLabels": strings.Join(c.GetLabelIDsForNames(labelNames), ","),
 	}
 
 	err := c.client.CreateCard(card, labelIDs)
@@ -52,10 +52,16 @@ func (c *Client) createCard(card *trello.Card, labelNames []string) error {
 		switch errors.Cause(err).(type) {
 		case *trello.ErrorURLLengthExceeded:
 			card.Desc = ""
-			if err2 := c.client.CreateCard(card, labelIDs); err2 != nil {
-				return err2
+			if err = c.client.CreateCard(card, labelIDs); err != nil {
+				return err
 			}
-			return err
+			fmt.Printf(
+				"[WARNING] Unable to automatically create card for issue \"%s\""+
+					"- request URL exceeded maximum length allowed.\n"+
+					"Issue created with no desc.\n",
+				card.Name,
+			)
+			return nil
 		default:
 			return errors.Wrapf(err, "unable to create card \"%s\"", card.Name)
 		}
@@ -64,76 +70,111 @@ func (c *Client) createCard(card *trello.Card, labelNames []string) error {
 }
 
 func (c *Client) updateCard(card *trello.Card, desc string, labelNames []string) error {
-	fmt.Printf("Updating card for issue \"%s\"\n", card.Name)
-	labelIDs := strings.Join(c.getLabelIDsForNames(labelNames), ",")
+	fmt.Printf("Updating card for issue \"%s\" on list \"%s\"\n", card.Name, c.listIDMap[card.IDList])
+	labelIDs := strings.Join(c.GetLabelIDsForNames(labelNames), ",")
 	err := card.Update(map[string]string{
 		"desc":     desc,
 		"idLabels": labelIDs,
 	})
 	switch errors.Cause(err).(type) {
 	case *trello.ErrorURLLengthExceeded:
-		if err2 := card.Update(map[string]string{
+		if err = card.Update(map[string]string{
 			"idLabels": labelIDs,
-		}); err2 != nil {
-			return err2
+		}); err != nil {
+			return err
 		}
-		return err
+		fmt.Printf(
+			"[WARNING] Unable to automatically update card for issue \"%s\""+
+				"- request URL exceeded maximum length allowed.\n"+
+				"Issue updated with no desc.\n",
+			card.Name,
+		)
+		return nil
 	default:
 		return errors.Wrapf(err, "unable to update card \"%s\"", card.Name)
 	}
 	return nil
 }
 
-func (c *Client) CreateOrUpdateCard(card *trello.Card, labelNames, listNames []string) (*Card, error) {
-	// See if any cards on the board for this issue already exist
-	cards, err := c.SearchCardsByName(card.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Index cards by list ID to check for their existence on the board's lists
-	cardsByListID := map[string]*trello.Card{}
-	for _, card := range cards {
-		cardsByListID[card.IDList] = card
-	}
-
-	// See if if any cards on the trello board for each wanted list already exist
-	for _, listName := range listNames {
-		// if card doesn't exist for this list
-		_, ok := cardsByListID[c.listIDMap[listName]]
+func (c *Client) updateCardInstances(card *trello.Card, actionConfig Actions, cardMap map[string]*Card) error {
+	for _, listName := range actionConfig.Update.Lists {
+		_, ok := cardMap[c.listIDMap[listName]]
+		// check if card already exists in list
 		if !ok {
 			// create it
 			card.IDList = c.listIDMap[listName]
-			if err = c.createCard(card, labelNames); err != nil {
-				return nil, errors.Wrapf(err, "Error creating card for issue \"%s\"", card.Name)
+			if err := c.createCard(card, actionConfig.Update.Labels); err != nil {
+				return errors.Wrapf(err, "Error creating card for issue \"%s\"", card.Name)
 			}
-		} else { // else update it
-			oldCard := cardsByListID[c.listIDMap[listName]]
-			if card.Desc != oldCard.Desc {
-				if err = c.updateCard(oldCard, card.Desc, labelNames); err != nil {
-					return nil, errors.Wrapf(err, "Error updating card \"%s\" for issue \"%s\"", card.ID, card.Name)
+		} else {
+			oldCard := cardMap[c.listIDMap[listName]]
+			if card.Desc != oldCard.trelloCard.Desc {
+				if err := c.updateCard(oldCard.trelloCard, card.Desc, actionConfig.Update.Labels); err != nil {
+					return errors.Wrapf(err, "Error updating card \"%s\" for issue \"%s\"", card.ID, card.Name)
 				}
 			}
 			// transfer old card to new card here to grab the client obj from the old card obj
-			oldCard.Desc = card.Desc
-			card = oldCard
+			oldCard.trelloCard.Desc = card.Desc
+			card = oldCard.trelloCard
 		}
 	}
-	return &Card{trelloCard: card}, nil
+	return nil
 }
 
-func (c *Client) SearchCardsByName(cardName string) ([]*trello.Card, error) {
-	cards, err := c.client.SearchCards(fmt.Sprintf("board:%s \"%s\"", c.board.ID, cardName), trello.Defaults())
+func (c *Client) CreateOrUpdateCardInstancesByActions(card *trello.Card, actionConfig Actions) error {
+	// See if any cards on the board for this issue already exist
+	cards, err := c.SearchCardsByName(card.Name)
+	if err != nil {
+		return err
+	}
+
+	// if no cards for this issue exist yet
+	if len(cards) == 0 {
+		// create one card for each configured list
+		for _, listName := range actionConfig.Create.Lists {
+			// create it
+			card.IDList = c.listIDMap[listName]
+			if err = c.createCard(card, actionConfig.Create.Labels); err != nil {
+				return errors.Wrapf(err, "Error creating card for issue \"%s\"", card.Name)
+			}
+		}
+	} else { // if cards for this issue exist
+		// update them all to mirror issue text
+		err := c.updateCardInstances(card, actionConfig, c.getCardsByIDs(cards))
+		if err != nil {
+			return errors.Wrapf(err, "Error updating cards for issue \"%s\"", card.Name)
+		}
+	}
+	return nil
+}
+
+func (c *Client) SearchCardsByName(cardName string) ([]*Card, error) {
+	trelloCards, err := c.client.SearchCards(fmt.Sprintf("board:%s \"%s\"", c.board.ID, cardName), trello.Defaults())
 	if err != nil {
 		return nil, errors.Wrapf(err, "error looking up card \"%s\"", cardName)
+	}
+	cards := make([]*Card, len(trelloCards))
+	for idx, trelloCard := range trelloCards {
+		cards[idx] = &Card{
+			trelloCard: trelloCard,
+		}
 	}
 	return cards, nil
 }
 
-func (c *Client) getLabelIDsForNames(labelNames []string) []string {
+func (c *Client) GetLabelIDsForNames(labelNames []string) []string {
 	idLabels := make([]string, len(labelNames))
 	for idx, labelName := range labelNames {
 		idLabels[idx] = c.labelIDMap[labelName]
 	}
 	return idLabels
+}
+
+func (c *Client) getCardsByIDs(cards []*Card) map[string]*Card {
+	// Index cards by list ID to check for their existence on the board's lists
+	cardsByListID := map[string]*Card{}
+	for _, card := range cards {
+		cardsByListID[card.trelloCard.IDList] = card
+	}
+	return cardsByListID
 }

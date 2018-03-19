@@ -54,12 +54,12 @@ func (c *Client) loadListMap() error {
 	return nil
 }
 
-func (c *Client) loadResources(config Config) {
+func (c *Client) loadResources(config ClientConfig) {
 	if err := c.loadBoard(config.BoardName); err != nil {
 		log.Fatalf("Unable to initalize trello connection: %s", err)
 	}
 
-	if err := c.loadLabelMap(); err != nil {
+	if err := c.loadListMap(); err != nil {
 		log.Fatalf("Unable to initialize trello connection: %s", err)
 	}
 
@@ -67,7 +67,7 @@ func (c *Client) loadResources(config Config) {
 		if len(config.LabelCardName) == 0 {
 			log.Fatal("Must specify either 'trello_label_map' or 'trello_label_card_name'")
 		}
-		if err := c.loadListMap(); err != nil {
+		if err := c.loadLabelMap(); err != nil {
 			log.Fatalf("Unable to initialize trello connection: %s", err)
 		}
 	}
