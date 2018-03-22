@@ -43,6 +43,7 @@ type IssueNode struct {
 		} `graphql:"comments(last:100)"`
 		CreatedAt  githubql.DateTime
 		ID         githubql.String
+		Number     githubql.Int
 		Repository struct {
 			Name githubql.String
 		}

@@ -51,7 +51,7 @@ func (i *IssuesService) Mentioned() ([]IssueNode, error) {
 	return issues, nil
 }
 
-func (i *IssuesService) IsClosed(issueName, issueNumber string) (bool, error) {
+func (i *IssuesService) IsClosed(issueName, issueId string) (bool, error) {
 	query := githubql.String(
 		fmt.Sprintf(
 			"is:closed archived:false org %s \"%s\"",
@@ -69,7 +69,7 @@ func (i *IssuesService) IsClosed(issueName, issueNumber string) (bool, error) {
 		return false, errors.Wrap(err, "Error querying closed assigned issues")
 	}
 	for _, issue := range issues {
-		if string(issue.Issue.ID) == issueNumber {
+		if string(issue.Issue.ID) == issueId {
 			return true, nil
 		}
 	}

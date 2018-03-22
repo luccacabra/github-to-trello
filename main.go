@@ -11,6 +11,7 @@ import (
 	githubSync "github.com/luccacabra/github-to-trello/syncer/github"
 	"github.com/luccacabra/github-to-trello/trello"
 
+	"github.com/luccacabra/github-to-trello/storage"
 	"github.com/spf13/viper"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -55,10 +56,13 @@ func main() {
 		},
 	)
 
+	db := storage.Init()
+	defer db.Close()
+
 	conf := &syncer.Config{}
 	err = viper.UnmarshalKey("config", conf)
 
-	issueSyncer := githubSync.NewIssueSyncer(ghClient, trelloClient, conf.Issue)
+	issueSyncer := githubSync.NewIssueSyncer(ghClient, trelloClient, db, conf.Issue)
 	if err = issueSyncer.Sync(); err != nil {
 		log.Fatal(err)
 	}
